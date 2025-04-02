@@ -311,4 +311,58 @@ public class ContentProvider {
         }
         Log.d("ContactDebug", "==== KẾT THÚC DANH SÁCH ====");
     }
+
+    public boolean addNewContact(String name, String phone, Uri imageUri) {
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
+
+        // 1. Tạo RawContact mới (KHÔNG cần ID)
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, null)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
+                .build());
+
+        // 2. Thêm tên (dùng back reference)
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0) // Liên kết với operation 0
+                .withValue(ContactsContract.Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE)
+                .withValue(StructuredName.DISPLAY_NAME, name)
+                .build());
+
+        // 3. Thêm số điện thoại
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                .withValue(ContactsContract.Data.MIMETYPE, Phone.CONTENT_ITEM_TYPE)
+                .withValue(Phone.NUMBER, phone)
+                .withValue(Phone.TYPE, Phone.TYPE_MOBILE)
+                .build());
+
+        // 4. Thêm ảnh (nếu có)
+        if (imageUri != null) {
+            try {
+                InputStream input = activity.getContentResolver().openInputStream(imageUri);
+                Bitmap bitmap = BitmapFactory.decodeStream(input);
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+                byte[] photoBytes = output.toByteArray();
+
+                ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                        .withValueBackReference(Data.RAW_CONTACT_ID, 0)
+                        .withValue(Data.MIMETYPE, ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                        .withValue(ContactsContract.CommonDataKinds.Photo.PHOTO, photoBytes)
+                        .build());
+            } catch (Exception e) {
+                Log.e("ContactAdd", "Lỗi xử lý ảnh", e);
+            }
+        }
+
+        // Thực thi
+        try {
+            ContentProviderResult[] results = activity.getContentResolver()
+                    .applyBatch(ContactsContract.AUTHORITY, ops);
+            return results != null && results.length > 0;
+        } catch (Exception e) {
+            Log.e("ContactAdd", "Lỗi thêm contact", e);
+            return false;
+        }
+    }
 }

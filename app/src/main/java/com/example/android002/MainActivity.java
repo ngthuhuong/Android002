@@ -131,6 +131,10 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Contact> updatedContacts = contentProvider.getAllContact();
             showContact();
             Toast.makeText(this, "Danh bạ đã được cập nhật", Toast.LENGTH_SHORT).show();
+        } else if (requestCode==210 && resultCode ==211) {
+            ArrayList<Contact> updatedContacts = contentProvider.getAllContact();
+            showContact();
+            Toast.makeText(this, "Danh bạ đã được cập nhật", Toast.LENGTH_SHORT).show();
         }
         super.onActivityResult(requestCode, resultCode, data);
     }

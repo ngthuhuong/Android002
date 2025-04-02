@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -37,6 +38,7 @@ public class SubActivity extends AppCompatActivity {
     private static final int PICK_IMAGE_REQUEST = 100;
     private static final int REQUEST_READ_STORAGE_PERMISSION = 101;
     Uri newImageContact;
+    Boolean isAddContact=false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,6 +55,7 @@ public class SubActivity extends AppCompatActivity {
         btnSave = findViewById(R.id.btnAdd);
         btnCancel = findViewById(R.id.btnBack);
         imageView = findViewById(R.id.imageView);
+        contentProvider = new ContentProvider(this);
 
         // Load contact data from intent
         Intent intent = getIntent();
@@ -70,41 +73,39 @@ public class SubActivity extends AppCompatActivity {
             } else {
                 imageView.setImageResource(R.drawable.img1);
             }
-            btnSave.setText("LƯU");
 
-            btnSave.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    String newName = etName.getText().toString();
-                    String newPhone = etPhone.getText().toString();
-
-                    contentProvider = new ContentProvider(SubActivity.this);
-                    contentProvider.debugPrintAllContactIds();
-                    Boolean isUpdated =false;
-                    if(newImageContact==null){
-                         isUpdated = contentProvider.updateContact(contactId, newName,newPhone);
-                    } else  {
-                         isUpdated = contentProvider.updateContact(contactId, newName,newPhone,newImageContact);
-                    }
-
-                    if(isUpdated){
-                        Toast.makeText(SubActivity.this, "Cập nhật thành công", Toast.LENGTH_SHORT).show();
-                        Intent returnItent = new Intent();
-                        setResult(RESULT_OK,returnItent);
-                        finish();
-                    }else{
-                        Toast.makeText(SubActivity.this,"Cap nhat ko thanh cong",Toast.LENGTH_LONG).show();
-
-                    }
-
-                }
-            });
-            btnCancel.setOnClickListener(v-> finish());
-        } else if (intent == null && intent.getExtras() ==null) {
+        } else  {
             etName.setText("");
             etPhone.setText("");
             imageView.setImageResource(R.drawable.img1);
+            contactId = null; //thay vi null thi contactID lai duoc luu la 0???
+            isAddContact =true;
         }
+        btnSave.setText("LƯU");
+
+        btnSave.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String name = etName.getText().toString().trim();
+                String phone = etPhone.getText().toString().trim();
+
+                if (name.isEmpty()) {
+                    Toast.makeText(SubActivity.this, "Vui lòng nhập tên", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Log.d("SubActivity", "contactId: " + contactId);
+                if ( contactId != 0) {
+                    updateExistingContact(name, phone);
+                } else if(contactId == 0) {
+                    addNewContact(name, phone,newImageContact);
+                }else {
+                    Toast.makeText(SubActivity.this, "???", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        btnCancel.setOnClickListener(v-> finish());
+
         imageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -124,6 +125,22 @@ public class SubActivity extends AppCompatActivity {
 
 
     }
+
+    private void updateExistingContact(String name, String phone) {
+    }
+
+    private void addNewContact(String newName, String newPhone, Uri newImageContact) {
+        boolean isAdded = contentProvider.addNewContact(newName, newPhone, newImageContact);
+
+        if (isAdded) {
+            Toast.makeText(SubActivity.this, "Thêm liên hệ thành công", Toast.LENGTH_SHORT).show();
+            setResult(211);
+            finish();
+        } else {
+            Toast.makeText(SubActivity.this, "Thêm liên hệ thất bại", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
