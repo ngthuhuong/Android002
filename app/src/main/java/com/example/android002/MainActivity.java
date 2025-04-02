@@ -20,6 +20,7 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -87,22 +88,36 @@ public class MainActivity extends AppCompatActivity {
         if(item.getItemId() == R.id.mnEdit){//sua danh ba
             //mo sub activity de edit
             openSubActivity(c);
+        } else if (item.getItemId()== R.id.mnDelete) {
+            long selectedContactId =  c.getId();
+            Boolean isDeleted = contentProvider.deleteContact(selectedContactId);
+            // Hiển thị dialog xác nhận
+            new AlertDialog.Builder(this)
+                    .setTitle("Xóa liên hệ")
+                    .setMessage("Bạn chắc chắn muốn xóa?")
+                    .setPositiveButton("Xóa", (dialog, which) -> {
+                        if (isDeleted) {
+                            Toast.makeText(this, "Đã xóa thành công", Toast.LENGTH_SHORT).show();
+                            showContact();
+                        } else {
+                            Toast.makeText(this, "Xóa thất bại", Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton("Hủy", null)
+                    .show();
+        
         }
 
         return super.onContextItemSelected(item);
 
     }
 
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if(requestCode == 200 && resultCode == RESULT_OK){
             ArrayList<Contact> updatedContacts = contentProvider.getAllContact();
-
-            // Cập nhật Adapter hoặc ListView/RecyclerView
-//            adapter.updateContacts(updatedContacts);
-//            adapter.notifyDataSetChanged();
             showContact();
-
             Toast.makeText(this, "Danh bạ đã được cập nhật", Toast.LENGTH_SHORT).show();
         }
         super.onActivityResult(requestCode, resultCode, data);

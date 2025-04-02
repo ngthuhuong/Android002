@@ -132,7 +132,7 @@ public class ContentProvider {
     }
 
     // Hàm hỗ trợ lấy CONTACT_ID và RAW_CONTACT_ID từ Phone._ID
-    private long[] getContactAndRawIds(long phoneId) {
+    public long[] getContactAndRawIds(long phoneId) {
         Cursor c = null;
         try {
             c = activity.getContentResolver().query(
@@ -149,6 +149,32 @@ public class ContentProvider {
             if (c != null) c.close();
         }
         return null;
+    }
+
+    public boolean deleteContact(long contactId) {
+        try {
+            long[] ids = getContactAndRawIds(contactId);
+
+            // 1. Xóa từ bảng Contacts
+            Uri contactUri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, ids[0]);
+            int deletedRows = activity.getContentResolver().delete(
+                    contactUri,
+                    null,
+                    null
+            );
+
+            // 2. Kiểm tra kết quả
+            if (deletedRows > 0) {
+                Log.d("ContactDelete", "Đã xóa contact ID: " + ids[0]);
+                return true;
+            } else {
+                Log.e("ContactDelete", "Không tìm thấy contact để xóa: " + ids[0]);
+                return false;
+            }
+        } catch (Exception e) {
+            Log.e("ContactDelete", "Lỗi khi xóa contact: " + e.getMessage());
+            return false;
+        }
     }
     public void debugPrintAllContactIds() {
         Cursor cursor = activity.getContentResolver().query(
