@@ -80,6 +80,17 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
         });
+
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, SubActivity.class);
+                Bundle bundle = new Bundle();
+                intent.putExtras(bundle);
+                //mở subactivity
+                startActivityForResult(intent,210);
+            }
+        });
     }
 
     @Override
@@ -105,7 +116,8 @@ public class MainActivity extends AppCompatActivity {
                     })
                     .setNegativeButton("Hủy", null)
                     .show();
-        
+        } else if (item.getItemId()==R.id.mnAdd) {
+
         }
 
         return super.onContextItemSelected(item);

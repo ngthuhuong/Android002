@@ -10,6 +10,8 @@ import android.content.ContentUris;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.content.ContentValues;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
@@ -20,6 +22,9 @@ import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import android.Manifest;
 
@@ -174,6 +179,119 @@ public class ContentProvider {
         } catch (Exception e) {
             Log.e("ContactDelete", "Lỗi khi xóa contact: " + e.getMessage());
             return false;
+        }
+    }
+    /**
+     * Cập nhật thông tin liên hệ (ghi đè hàm cũ)
+     * @param phoneId Phone._ID của số điện thoại cần cập nhật
+     * @param newName Tên mới (truyền null nếu không đổi tên)
+     * @param newNumber Số mới (truyền null nếu không đổi số)
+     * @param newImageUri Uri của ảnh mới (truyền null nếu không đổi ảnh)
+     * @return true nếu cập nhật thành công
+     */
+    public boolean updateContact(long phoneId, String newName, String newNumber, Uri newImageUri) {
+        // 1. Kiểm tra quyền ghi danh bạ
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_CONTACTS)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.e("ContactUpdate", "Permission denied: WRITE_CONTACTS");
+            return false;
+        }
+
+        long[] ids = getContactAndRawIds(phoneId);
+        if (ids == null) {
+            Log.e("ContactUpdate", "No contact found for phoneId: " + phoneId);
+            return false;
+        }
+        long rawContactId = ids[1];
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
+        if (newName != null) {
+            ops.add(createNameUpdateOperation(rawContactId, newName));
+        }
+        if (newNumber != null) {
+            ops.add(createPhoneUpdateOperation(phoneId, newNumber));
+        }
+        if (newImageUri != null) {
+            try {
+                ContentProviderOperation photoOp = createPhotoUpdateOperation(rawContactId, newImageUri);
+                if (photoOp != null) {
+                    ops.add(photoOp);
+                }
+            } catch (Exception e) {
+                Log.e("ContactUpdate", "Failed to process image", e);
+            }
+        }
+        if (!ops.isEmpty()) {
+            try {
+                ContentProviderResult[] results = activity.getContentResolver()
+                        .applyBatch(ContactsContract.AUTHORITY, ops);
+                Log.d("ContactUpdate", "Successfully executed " + results.length + " operations");
+                return true;
+            } catch (Exception e) {
+                Log.e("ContactUpdate", "Batch operation failed", e);
+            }
+        }
+        return false;
+    }
+
+    // Helper method: Tạo operation cập nhật tên
+    private ContentProviderOperation createNameUpdateOperation(long rawContactId, String newName) {
+        return ContentProviderOperation.newUpdate(Data.CONTENT_URI)
+                .withSelection(
+                        Data.RAW_CONTACT_ID + "=? AND " +
+                                Data.MIMETYPE + "=?",
+                        new String[]{
+                                String.valueOf(rawContactId),
+                                StructuredName.CONTENT_ITEM_TYPE
+                        })
+                .withValue(StructuredName.DISPLAY_NAME, newName)
+                .build();
+    }
+
+    // Helper method: Tạo operation cập nhật số điện thoại
+    private ContentProviderOperation createPhoneUpdateOperation(long phoneId, String newNumber) {
+        return ContentProviderOperation.newUpdate(Data.CONTENT_URI)
+                .withSelection(
+                        Data._ID + "=? AND " +
+                                Data.MIMETYPE + "=?",
+                        new String[]{
+                                String.valueOf(phoneId),
+                                Phone.CONTENT_ITEM_TYPE
+                        })
+                .withValue(Phone.NUMBER, newNumber)
+                .build();
+    }
+
+    // Helper method: Tạo operation cập nhật ảnh, android contact provider ko ho tro doi anh qua uri nen phai
+    //doi thanh byte array
+    private ContentProviderOperation createPhotoUpdateOperation(long rawContactId, Uri imageUri) {
+        try {
+            // 1. Đọc ảnh từ Uri và chuyển thành byte array
+            InputStream input = activity.getContentResolver().openInputStream(imageUri);
+            Bitmap bitmap = BitmapFactory.decodeStream(input);
+            if (bitmap == null) {
+                Log.e("ContactUpdate", "Failed to decode image");
+                return null;
+            }
+
+            // 2. Chuyển đổi bitmap thành byte array
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output);
+            byte[] photoBytes = output.toByteArray();
+
+            // 3. Tạo operation cập nhật ảnh
+            return ContentProviderOperation.newUpdate(Data.CONTENT_URI)
+                    .withSelection(
+                            Data.RAW_CONTACT_ID + "=? AND " +
+                                    Data.MIMETYPE + "=?",
+                            new String[]{
+                                    String.valueOf(rawContactId),
+                                    ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE
+                            })
+                    .withValue(ContactsContract.CommonDataKinds.Photo.PHOTO, photoBytes)
+                    .build();
+        } catch (Exception e) {
+            Log.e("ContactUpdate", "Error creating photo update operation", e);
+            return null;
         }
     }
     public void debugPrintAllContactIds() {
