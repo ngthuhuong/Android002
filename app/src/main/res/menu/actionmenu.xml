@@ -9,6 +9,6 @@
         android:id="@+id/mnSortPhone"
         android:title="Sort by phone" />
     <item
-        android:id="@+id/mnBroadcast"
-        android:title="Broadcast" />
+        android:id="@+id/mnHis"
+        android:title="Hiện lịch sử cuộc gọi" />
 </menu>

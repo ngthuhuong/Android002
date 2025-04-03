@@ -8,10 +8,10 @@
     <item android:title="Delete"
         android:id="@+id/mnDelete" />
     <item
-    android:id="@+id/mnAdd"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:title="Add" />
+        android:id="@+id/mnHistory"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:title="Lịch sử cuộc gọi" />
     <item android:title="Call"
         android:id="@+id/mnCall" />
     <item android:title="Sms"

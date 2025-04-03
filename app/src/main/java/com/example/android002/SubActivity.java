@@ -127,6 +127,20 @@ public class SubActivity extends AppCompatActivity {
     }
 
     private void updateExistingContact(String name, String phone) {
+        boolean isUpdated = contentProvider.updateContact(
+                contactId,
+                name,
+                phone,
+                newImageContact
+        );
+
+        if (isUpdated) {
+            Toast.makeText(this, "Cập nhật thành công", Toast.LENGTH_SHORT).show();
+            setResult(RESULT_OK);
+            finish();
+        } else {
+            Toast.makeText(this, "Cập nhật thất bại", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void addNewContact(String newName, String newPhone, Uri newImageContact) {
