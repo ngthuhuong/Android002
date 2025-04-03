@@ -11,4 +11,7 @@
     <item
         android:id="@+id/mnHis"
         android:title="Hiện lịch sử cuộc gọi" />
+    <item
+        android:id="@+id/mnAudio"
+        android:title="Xem file âm thanh" />
 </menu>

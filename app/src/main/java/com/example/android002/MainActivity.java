@@ -168,6 +168,9 @@ public class MainActivity extends AppCompatActivity {
                         REQUEST_READ_CALL_LOG);
             }
             return true;
+        } else if (item.getItemId() == R.id.mnAudio) {
+            Intent newIntent = new Intent(this,ShowAudioFile.class);
+            startActivityForResult(newIntent, 230);
         }
         return super.onOptionsItemSelected(item);
 
