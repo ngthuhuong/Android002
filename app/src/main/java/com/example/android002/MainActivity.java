@@ -17,6 +17,7 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
+
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -133,11 +134,17 @@ public class MainActivity extends AppCompatActivity {
                         new String[]{Manifest.permission.READ_CALL_LOG},
                         REQUEST_READ_CALL_LOG);
             } else {
-                showCallHistory(c.getNumber());
+                ArrayList<String> callHistory = getCallHistoryByPhoneNumber(c.getNumber());
+                if (callHistory.isEmpty()) {
+                    Toast.makeText(this, "Không có lịch sử cuộc gọi", Toast.LENGTH_SHORT).show();
+                } else {
+                    Intent intent = new Intent(this, CallHistory.class);
+                    intent.putStringArrayListExtra("CALL_HISTORY_LIST", callHistory);
+                    intent.putExtra("PHONE_NUMBER", c.getNumber());
+                    startActivity(intent);
+                }
             }
-
         }
-
         return super.onContextItemSelected(item);
 
     }
@@ -145,95 +152,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if(item.getItemId() == R.id.mnHis){
-            //ham doc lich su cuoc goi tu tat ca so dien thoai
-            showAllCallHistory();
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG)
+                    == PackageManager.PERMISSION_GRANTED) {
+                ArrayList<String> callHistory = getCallHistory();
+                if (callHistory.isEmpty()) {
+                    Toast.makeText(this, "Không có lịch sử cuộc gọi", Toast.LENGTH_SHORT).show();
+                } else {
+                    Intent intent = new Intent(this, CallHistory.class);
+                    intent.putStringArrayListExtra("CALL_HISTORY_LIST", callHistory);
+                    startActivityForResult(intent,220);
+                }
+            } else {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.READ_CALL_LOG},
+                        REQUEST_READ_CALL_LOG);
+            }
+            return true;
         }
         return super.onOptionsItemSelected(item);
 
     }
 
-    private void showAllCallHistory() {
-        // Define which columns we want to query
-        String[] projection = {
-                CallLog.Calls.NUMBER,
-                CallLog.Calls.TYPE,
-                CallLog.Calls.DATE,
-                CallLog.Calls.DURATION,
-                CallLog.Calls.CACHED_NAME
-        };
 
-        // Query the call log (all calls, not filtered by number)
-        Cursor cursor = getContentResolver().query(
-                CallLog.Calls.CONTENT_URI,
-                projection,
-                null,
-                null,
-                CallLog.Calls.DATE + " DESC LIMIT 100");  // Show most recent 100 calls
-
-        if (cursor != null) {
-            try {
-                StringBuilder callHistory = new StringBuilder();
-                SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-
-                while (cursor.moveToNext()) {
-                    // Get column indices safely
-                    int numberIndex = cursor.getColumnIndex(CallLog.Calls.NUMBER);
-                    int typeIndex = cursor.getColumnIndex(CallLog.Calls.TYPE);
-                    int dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE);
-                    int durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION);
-                    int nameIndex = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
-
-                    // Skip if any required column is missing
-                    if (numberIndex == -1 || typeIndex == -1 || dateIndex == -1) continue;
-
-                    // Extract values
-                    String number = cursor.getString(numberIndex);
-                    int type = cursor.getInt(typeIndex);
-                    long date = cursor.getLong(dateIndex);
-                    long duration = (durationIndex != -1) ? cursor.getLong(durationIndex) : 0;
-                    String name = (nameIndex != -1) ? cursor.getString(nameIndex) : "Unknown";
-
-                    // Format call type
-                    String callType;
-                    switch (type) {
-                        case CallLog.Calls.INCOMING_TYPE:
-                            callType = "Gọi tới";
-                            break;
-                        case CallLog.Calls.OUTGOING_TYPE:
-                            callType = "Gọi đi";
-                            break;
-                        case CallLog.Calls.MISSED_TYPE:
-                            callType = "Gọi nhỡ";
-                            break;
-                        default:
-                            callType = "Số lạ";
-                    }
-
-                    // Format the entry
-                    callHistory.append(sdf.format(new Date(date)))
-                            .append(" - ")
-                            .append(callType)
-                            .append(" - ")
-                            .append(name.isEmpty() ? number : name)
-                            .append(" (")
-                            .append(duration)
-                            .append("s)\n\n");
-                }
-
-                // Show results in a dialog
-                new AlertDialog.Builder(this)
-                        .setTitle("Call History")
-                        .setMessage(callHistory.toString())
-                        .setPositiveButton("OK", null)
-                        .show();
-
-            } finally {
-                cursor.close();
-            }
-        } else {
-            Toast.makeText(this, "Failed to load call history", Toast.LENGTH_SHORT).show();
-        }
-    }
 
 
     @Override
@@ -275,7 +215,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
     private void showCallHistory(String phone) {
-        // Thử chuẩn hóa số điện thoại trước khi truy vấn
+        // Thử chuẩn hóa số điện thoại
         String phoneNumber = phone.replaceAll("[^0-9+]", "");
         Log.d("phone : ",phoneNumber);
         String[] projection = {
@@ -340,7 +280,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // Hiển thị kết quả
                     new AlertDialog.Builder(this)
-                            .setTitle("Lịch sử cuộc gọi")
+                            .setTitle("Lịch sử cuộc gọi của" +phone)
                             .setMessage(callHistory.toString())
                             .setPositiveButton("Đóng", null)
                             .show();
@@ -353,5 +293,155 @@ public class MainActivity extends AppCompatActivity {
         } else {
             Toast.makeText(this, "Lỗi khi truy vấn lịch sử cuộc gọi", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private ArrayList<String> getCallHistory() {
+        ArrayList<String> callHistoryList = new ArrayList<>();
+
+        String[] projection = {
+                CallLog.Calls.TYPE,
+                CallLog.Calls.DATE,
+                CallLog.Calls.DURATION,
+                CallLog.Calls.NUMBER,
+                CallLog.Calls.CACHED_NAME
+        };
+
+        Cursor cursor = getContentResolver().query(
+                CallLog.Calls.CONTENT_URI,
+                projection,
+                null, //ko lấy điều kiện where
+                null,
+                CallLog.Calls.DATE + " DESC"); //ngay gan nhat hien truoc
+
+        if (cursor != null) {
+            try {
+                if (cursor.moveToFirst()) {
+                    int typeIndex = cursor.getColumnIndex(CallLog.Calls.TYPE);
+                    int dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE);
+                    int durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION);
+                    int numberIndex = cursor.getColumnIndex(CallLog.Calls.NUMBER);
+                    int nameIndex = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
+
+                    do {
+                        if (typeIndex < 0 || dateIndex < 0 || durationIndex < 0 || numberIndex < 0) {
+                            Log.e("CallLog", "Missing required columns in cursor");
+                            break;
+                        }
+
+                        int callType = cursor.getInt(typeIndex);
+                        long date = cursor.getLong(dateIndex);
+                        long duration = cursor.getLong(durationIndex);
+                        String number = cursor.getString(numberIndex);
+                        String name = cursor.getString(nameIndex);
+
+                        String contact = (name != null && !name.isEmpty()) ? name : number;
+
+                        String type;
+                        switch (callType) {
+                            case CallLog.Calls.INCOMING_TYPE:
+                                type = "Gọi đến";
+                                break;
+                            case CallLog.Calls.OUTGOING_TYPE:
+                                type = "Gọi di";
+                                break;
+                            case CallLog.Calls.MISSED_TYPE:
+                                type = "Nhỡ";
+                                break;
+                            default:
+                                type = "Khác";
+                        }
+
+                        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+                        String callDate = sdf.format(new Date(date));
+
+                        String callInfo = contact + "\n" + type + " - " + callDate + " - " + duration + " giây";
+                        callHistoryList.add(callInfo);
+
+                    } while (cursor.moveToNext());
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        return callHistoryList;
+    }
+    private ArrayList<String> getCallHistoryByPhoneNumber(String phoneNumber) {
+        ArrayList<String> callHistoryList = new ArrayList<>();
+
+        // Chuẩn hóa số điện thoại (bỏ các ký tự không phải số)
+        String normalizedNumber = phoneNumber.replaceAll("[^0-9+]", "");
+
+        // Các cột dữ liệu cần lấy từ CallLog
+        String[] projection = {
+                CallLog.Calls.TYPE,
+                CallLog.Calls.DATE,
+                CallLog.Calls.DURATION,
+                CallLog.Calls.NUMBER,
+                CallLog.Calls.CACHED_NAME
+        };
+
+        // Truy vấn với điều kiện số điện thoại
+        Cursor cursor = getContentResolver().query(
+                CallLog.Calls.CONTENT_URI,
+                projection,
+                CallLog.Calls.NUMBER + " = ?",  // Điều kiện WHERE
+                new String[]{normalizedNumber}, // Giá trị cho điều kiện
+                CallLog.Calls.DATE + " DESC"    // Sắp xếp theo ngày giảm dần
+        );
+
+        if (cursor != null) {
+            try {
+                if (cursor.moveToFirst()) {
+                    // Lấy chỉ số cột
+                    int typeIndex = cursor.getColumnIndex(CallLog.Calls.TYPE);
+                    int dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE);
+                    int durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION);
+                    int numberIndex = cursor.getColumnIndex(CallLog.Calls.NUMBER);
+                    int nameIndex = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
+
+                    do {
+                        // Đọc giá trị từ cursor
+                        int callType = cursor.getInt(typeIndex);
+                        long date = cursor.getLong(dateIndex);
+                        long duration = cursor.getLong(durationIndex);
+                        String number = cursor.getString(numberIndex);
+                        String name = cursor.getString(nameIndex);
+
+                        // Xác định loại cuộc gọi
+                        String callTypeStr;
+                        switch (callType) {
+                            case CallLog.Calls.INCOMING_TYPE:
+                                callTypeStr = "Cuộc gọi đến";
+                                break;
+                            case CallLog.Calls.OUTGOING_TYPE:
+                                callTypeStr = "Cuộc gọi đi";
+                                break;
+                            case CallLog.Calls.MISSED_TYPE:
+                                callTypeStr = "Cuộc gọi nhỡ";
+                                break;
+                            default:
+                                callTypeStr = "Không xác định";
+                        }
+
+                        // Định dạng ngày tháng
+                        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+                        String callDate = sdf.format(new Date(date));
+
+                        // Tạo chuỗi thông tin cuộc gọi
+                        String contactInfo = (name != null && !name.isEmpty()) ? name : number;
+                        String callInfo = contactInfo + "\n"
+                                + callTypeStr + " - "
+                                + callDate + " - "
+                                + duration + " giây";
+
+                        callHistoryList.add(callInfo);
+                    } while (cursor.moveToNext());
+                }
+            } finally {
+                cursor.close(); // Đóng cursor sau khi sử dụng
+            }
+        }
+
+        return callHistoryList;
     }
 }
